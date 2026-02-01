@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AIGSM Luxury App</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --gold: #d4af37; --dark: #0a0a0a; --gray: #1a1a1a; --text: #e0e0e0; --red: #ff4b2b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--dark); color: var(--text); height: 100vh; overflow: hidden; }
+
+        /* App Container */
+        .app-frame { width: 100%; max-width: 500px; height: 100vh; margin: auto; display: flex; flex-direction: column; background: var(--dark); }
+
+        /* Header */
+        .header { padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .logo { font-weight: bold; font-size: 20px; color: var(--gold); }
+        .my-id-badge { font-size: 11px; background: #222; padding: 5px 12px; border-radius: 15px; border: 1px solid var(--gold); }
+
+        /* Language Nav */
+        .lang-nav { display: flex; gap: 10px; padding: 10px; background: var(--gray); }
+        select { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 13px; outline: none; }
+
+        /* Video Section */
+        .video-container { position: relative; height: 280px; display: flex; background: #000; gap: 2px; }
+        video { width: 50%; height: 100%; object-fit: cover; }
+        
+        /* Subtitles - Improved Visibility */
+        .subtitle-area { 
+            position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.85); 
+            padding: 15px 5px; text-align: center; border-top: 1px solid var(--gold); 
+        }
+        #t-res { color: var(--gold); font-size: 18px; font-weight: bold; display: block; margin-bottom: 5px; }
+        #o-res { color: #aaa; font-size: 11px; }
+
+        /* Controls Panel */
+        .controls { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 20px; }
+        .btn-group { display: flex; justify-content: space-around; align-items: center; margin-bottom: 30px; }
+        
+        .icon-btn { 
+            width: 55px; height: 55px; border-radius: 50%; border: none; 
+            background: var(--gray); color: #fff; font-size: 20px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s;
+        }
+        .icon-btn span { font-size: 9px; margin-top: 4px; color: #888; }
+        .icon-btn.active { background: var(--gold); color: #000; }
+        .icon-btn.hangup { background: var(--red); color: #fff; width: 65px; height: 65px; }
+
+        /* Input Bar */
+        .input-bar { display: flex; background: #1a1a1a; border-radius: 30px; padding: 5px 5px 5px 20px; align-items: center; border: 1px solid #333; }
+        input { flex: 1; background: transparent; border: none; color: #fff; padding: 10px; outline: none; text-align: center; }
+        .call-btn { background: var(--gold); border: none; width: 45px; height: 45px; border-radius: 50%; color: #000; font-size: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="app-frame">
+    <div class="header">
+        <div class="logo"><i class="fas fa-crown"></i> AIGSM LUX</div>
+        <div class="my-id-badge">ID: <span id="my-id">...</span></div>
+    </div>
+
+    <div class="lang-nav">
+        <select id="src-lang">
+            <option value="ar-SA">العربية</option><option value="tr-TR">Türkçe</option>
+            <option value="en-US">English</option><option value="ku-IQ">Kurdî</option>
+            <option value="fr-FR">Français</option><option value="de-DE">Deutsch</option>
+        </select>
+        <select id="dst-lang">
+            <option value="tr">إلى التركية</option><option value="ar">إلى العربية</option>
+            <option value="en">إلى الإنجليزية</option><option value="de">إلى الألمانية</option>
+        </select>
+    </div>
+
+    <div class="video-container">
+        <video id="me" autoplay playsinline muted></video>
+        <video id="other" autoplay playsinline></video>
+        <div class="subtitle-area">
+            <span id="t-res">المترجم الذكي جاهز...</span>
+            <span id="o-res">تحدث ليتم التعرف على صوتك</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="btn-group">
+            <button class="icon-btn" onclick="muteMic()"><i class="fas fa-microphone" id="m-ic"></i><span>كتم</span></button>
+            <button class="icon-btn" onclick="muteSpk()"><i class="fas fa-volume-up" id="s-ic"></i><span>صوت</span></button>
+            <button class="icon-btn hangup" onclick="endCall()"><i class="fas fa-phone-slash"></i><span>إنهاء</span></button>
+            <button class="icon-btn" onclick="muteCam()"><i class="fas fa-video" id="c-ic"></i><span>كاميرا</span></button>
+            <button class="icon-btn" id="trans-btn" onclick="startTrans()"><i class="fas fa-language"></i><span>ترجمة</span></button>
+        </div>
+
+        <div class="input-bar">
+            <input type="text" id="target-id" placeholder="أدخل ID الصديق">
+            <button class="call-btn" onclick="makeCall()"><i class="fas fa-phone"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const config = { config: { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:stun1.l.google.com:19302' }] } };
+    const peer = new Peer(Math.floor(1000 + Math.random() * 9000).toString(), config);
+    
+    let myStream, activeCall;
+
+    // تشغيل الكاميرا فورياً
+    navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
+        myStream = stream;
+        document.getElementById('me').srcObject = stream;
+    }).catch(() => alert("تأكد من إذن الكاميرا"));
+
+    peer.on('open', id => document.getElementById('my-id').innerText = id);
+
+    // استقبال المكالمة (فتح فوري للطرفين)
+    peer.on('call', call => {
+        activeCall = call;
+        call.answer(myStream);
+        setupStream(call);
+    });
+
+    function makeCall() {
+        const id = document.getElementById('target-id').value;
+        if(id) {
+            activeCall = peer.call(id, myStream);
+            setupStream(activeCall);
+        }
+    }
+
+    function setupStream(call) {
+        call.on('stream', s => {
+            const v = document.getElementById('other');
+            v.srcObject = s;
+            v.play();
+        });
+    }
+
+    function endCall() {
+        if(activeCall) activeCall.close();
+        document.getElementById('other').srcObject = null;
+        activeCall = null;
+    }
+
+    // محرك الترجمة المحسن
+    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(Speech) {
+        const rec = new Speech();
+        rec.continuous = true; rec.interimResults = true;
+
+        function startTrans() {
+            const btn = document.getElementById('trans-btn');
+            rec.lang = document.getElementById('src-lang').value;
+            if(!btn.classList.contains('active')) {
+                btn.classList.add('active'); rec.start();
+            } else {
+                btn.classList.remove('active'); rec.stop();
+            }
+        }
+
+        rec.onresult = async (e) => {
+            let t = ""; for (let i = e.resultIndex; i < e.results.length; ++i) t += e.results[i][0].transcript;
+            document.getElementById('o-res').innerText = t;
+            const target = document.getElementById('dst-lang').value;
+            try {
+                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${target}&dt=t&q=${encodeURI(t)}`);
+                const data = await res.json();
+                document.getElementById('t-res').innerText = data[0][0][0];
+            } catch(h) {}
+        };
+    }
+
+    // وظائف التحكم
+    function muteMic() {
+        myStream.getAudioTracks()[0].enabled = !myStream.getAudioTracks()[0].enabled;
+        document.getElementById('m-ic').className = myStream.getAudioTracks()[0].enabled ? "fas fa-microphone" : "fas fa-microphone-slash";
+    }
+    function muteCam() {
+        myStream.getVideoTracks()[0].enabled = !myStream.getVideoTracks()[0].enabled;
+        document.getElementById('c-ic').className = myStream.getVideoTracks()[0].enabled ? "fas fa-video" : "fas fa-video-slash";
+    }
+    function muteSpk() {
+        const o = document.getElementById('other');
+        o.muted = !o.muted;
+        document.getElementById('s-ic').className = o.muted ? "fas fa-volume-mute" : "fas fa-volume-up";
+    }
+</script>
+</body>
+</html>
