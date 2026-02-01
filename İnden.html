@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProConnect | الإصدار النهائي المصلح</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --primary: #007bff; --danger: #ef4444; --success: #10b981; --dark: #1e293b; }
+        body { font-family: sans-serif; background: #f1f5f9; margin: 0; padding-bottom: 80px; }
+        
+        /* الأقسام */
+        .page { display: none; padding: 20px; animation: slideUp 0.3s ease-out; }
+        .active-page { display: block; }
+
+        /* فيديو احترافي */
+        .video-box { position: relative; width: 100%; height: 400px; background: #000; border-radius: 30px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        #remote-video { width: 100%; height: 100%; object-fit: cover; }
+        #local-video { position: absolute; top: 15px; right: 15px; width: 110px; height: 150px; border-radius: 20px; border: 2px solid white; object-fit: cover; z-index: 10; background: #222; }
+
+        /* شريط التنقل */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; height: 70px; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); border-radius: 25px 25px 0 0; }
+        .nav-btn { border: none; background: none; color: #94a3b8; font-size: 22px; cursor: pointer; transition: 0.3s; }
+        .nav-btn.active { color: var(--primary); transform: translateY(-5px); }
+
+        /* أدوات المكالمة */
+        .call-tools { display: flex; justify-content: center; gap: 20px; margin-top: -30px; position: relative; z-index: 100; }
+        .circle-btn { width: 60px; height: 60px; border-radius: 50%; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); transition: 0.3s; }
+        .btn-hangup { background: var(--danger); }
+        .btn-mute { background: #475569; }
+        .btn-mute.muted { background: var(--danger); }
+
+        .profile-card { background: white; padding: 25px; border-radius: 25px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .id-num { font-size: 40px; font-weight: bold; color: var(--primary); margin: 10px 0; }
+        
+        input { width: 100%; padding: 15px; border-radius: 15px; border: 1px solid #ddd; margin: 15px 0; text-align: center; font-size: 18px; }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="page-call" class="page active-page">
+        <div class="video-box">
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+        </div>
+        
+        <div class="call-tools">
+            <button id="mute-btn" class="circle-btn btn-mute" onclick="toggleMute()"><i class="fas fa-microphone"></i></button>
+            <button class="circle-btn btn-hangup" onclick="endCall()"><i class="fas fa-phone-slash"></i></button>
+        </div>
+
+        <div style="margin-top: 40px; padding: 10px;">
+            <input type="text" id="target-id" placeholder="أدخل رقم الطرف الآخر">
+            <button onclick="makeCall()" style="width:100%; padding:15px; border-radius:15px; border:none; background:var(--success); color:white; font-weight:bold; font-size:18px;">اتصال الآن 📞</button>
+            <p id="status" style="text-align:center; color:#64748b; margin-top:10px;">جاهز للاتصال</p>
+        </div>
+    </div>
+
+    <div id="page-user" class="page">
+        <div class="profile-card">
+            <h3>هويتي الرقمية</h3>
+            <div class="id-num" id="display-my-id">....</div>
+            <div id="qrcode" style="margin:20px auto; display:inline-block;"></div>
+            <p style="color:#94a3b8;">هذا الباركود يختصر الوقت، اطلب من صديقك مسحه للاتصال بك مباشرة.</p>
+        </div>
+    </div>
+
+    <div id="page-settings" class="page">
+        <div class="profile-card">
+            <h3 style="text-align:right;">الإعدادات</h3>
+            <div style="text-align:right; color:#475569;">
+                <p><i class="fas fa-video"></i> جودة الفيديو: عالية</p>
+                <p><i class="fas fa-lock"></i> تشفير المكالمة: مفعل</p>
+                <button onclick="location.reload()" style="background:none; border:1px solid #ddd; padding:10px; border-radius:10px; cursor:pointer;">إعادة تشغيل النظام</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="nav('page-call', this)"><i class="fas fa-phone-alt"></i></button>
+        <button class="nav-btn" onclick="nav('page-user', this)"><i class="fas fa-user-circle"></i></button>
+        <button class="nav-btn" onclick="nav('page-settings', this)"><i class="fas fa-cog"></i></button>
+    </nav>
+
+<script>
+    // إعدادات الخوادم العالمية لضمان الاتصال بين الهواتف
+    const config = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:stun1.l.google.com:19302' }] };
+    const myId = Math.floor(1000 + Math.random() * 9000).toString();
+    const peer = new Peer(myId, { config: config });
+    
+    let localStream;
+    let activeCall;
+
+    // تشغيل الكاميرا
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        localStream = stream;
+        document.getElementById('local-video').srcObject = stream;
+        
+        // ميزة الاتصال التلقائي عبر الرابط
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoCall = urlParams.get('call');
+        if (autoCall) {
+            document.getElementById('status').innerText = "جاري الاتصال التلقائي...";
+            setTimeout(() => { makeCall(autoCall); }, 2000);
+        }
+    });
+
+    peer.on('open', id => {
+        document.getElementById('display-my-id').innerText = id;
+        const link = window.location.origin + window.location.pathname + "?call=" + id;
+        new QRCode(document.getElementById("qrcode"), { text: link, width: 150, height: 150 });
+    });
+
+    // استقبال المكالمة وإصلاح مشكلة الإغلاق
+    peer.on('call', call => {
+        call.answer(localStream);
+        handleCall(call);
+    });
+
+    function makeCall(id = null) {
+        const target = id || document.getElementById('target-id').value;
+        if (!target) return alert("أدخل رقم الطرف الآخر");
+        const call = peer.call(target, localStream);
+        handleCall(call);
+    }
+
+    function handleCall(call) {
+        activeCall = call;
+        document.getElementById('status').innerText = "في مكالمة الآن...";
+        
+        call.on('stream', remoteStream => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+        });
+
+        // إصلاح مشكلة الإغلاق: إذا أغلق الطرف الآخر، يتم التنظيف عندك
+        call.on('close', () => { cleanUp(); });
+        call.on('error', () => { cleanUp(); });
+    }
+
+    // وظيفة إغلاق الميكروفون
+    function toggleMute() {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        const btn = document.getElementById('mute-btn');
+        btn.classList.toggle('muted');
+        btn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+    }
+
+    // وظيفة إغلاق المكالمة المصلحة
+    function endCall() {
+        if (activeCall) {
+            activeCall.close(); // يغلق عند الطرفين
+        }
+        cleanUp();
+    }
+
+    function cleanUp() {
+        document.getElementById('remote-video').srcObject = null;
+        document.getElementById('status').innerText = "انتهت المكالمة";
+        activeCall = null;
+    }
+
+    // تبديل الصفحات
+    function nav(pageId, btn) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active-page');
+        btn.classList.add('active');
+    }
+</script>
+</body>
+</html>
